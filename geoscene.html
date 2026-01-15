@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GeoScene 实时位置追踪</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #0079c1 0%, #005e95 100%);
+            color: white;
+            padding: 16px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        #mapView {
+            flex: 1;
+            width: 100%;
+        }
+        
+        .control-panel {
+            background-color: white;
+            padding: 15px 20px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .status-container {
+            margin-bottom: 15px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .status-value {
+            color: #0079c1;
+        }
+        
+        .accuracy-high { color: #4CAF50; }
+        .accuracy-medium { color: #FF9800; }
+        .accuracy-low { color: #F44336; }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background-color: #0079c1;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #005e95;
+        }
+        
+        .btn-secondary {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .icon {
+            font-size: 1.2rem;
+        }
+        
+        .tracking-active {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 121, 193, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 121, 193, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 121, 193, 0); }
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            gap: 15px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 121, 193, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #0079c1;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .info-bubble {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            max-width: 90%;
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+            display: none;
+        }
+        
+        .error {
+            border-left-color: #F44336;
+        }
+        
+        @media (max-width: 480px) {
+            header {
+                padding: 14px 16px;
+            }
+            
+            h1 {
+                font-size: 1.2rem;
+            }
+            
+            .control-panel {
+                padding: 12px 16px;
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span class="icon">📍</span> GeoScene 实时位置追踪</h1>
+        <div class="subtitle">点击开始追踪按钮，获取您的实时位置</div>
+    </header>
+    
+    <div id="mapView"></div>
+    
+    <div class="control-panel">
+        <div class="status-container">
+            <div class="status-item">
+                <span class="status-label">追踪状态:</span>
+                <span id="trackingStatus" class="status-value">未开始</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">当前位置:</span>
+                <span id="currentPosition" class="status-value">等待定位...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">定位精度:</span>
+                <span id="accuracy" class="status-value">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">更新时间:</span>
+                <span id="lastUpdate" class="status-value">--</span>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button id="startTracking" class="btn btn-primary">
+                <span class="icon">▶️</span> 开始追踪
+            </button>
+            <button id="stopTracking" class="btn btn-secondary" disabled>
+                <span class="icon">⏸️</span> 停止追踪
+            </button>
+        </div>
+    </div>
+    
+    <div id="infoBubble" class="info-bubble"></div>
+    
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/widgets/Track",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/symbols/SimpleLineSymbol",
+            "esri/symbols/SimpleFillSymbol",
+            "esri/Color",
+            "esri/layers/GraphicsLayer"
+        ], function(Map, MapView, Track, Graphic, Point, SimpleMarkerSymbol, 
+                   SimpleLineSymbol, SimpleFillSymbol, Color, GraphicsLayer) {
+            
+            // 初始化地图
+            const map = new Map({
+                basemap: "streets-navigation-vector"
+            });
+            
+            // 创建地图视图
+            const view = new MapView({
+                container: "mapView",
+                map: map,
+                center: [116.4074, 39.9042], // 北京中心点作为初始位置
+                zoom: 12,
+                constraints: {
+                    minZoom: 3,
+                    maxZoom: 20
+                }
+            });
+            
+            // 创建图形图层用于显示位置标记和轨迹
+            const positionLayer = new GraphicsLayer();
+            const trackLayer = new GraphicsLayer();
+            map.add(positionLayer);
+            map.add(trackLayer);
+            
+            // 创建位置标记符号
+            const locationSymbol = new SimpleMarkerSymbol({
+                color: new Color([0, 121, 193, 0.9]),
+                outline: {
+                    color: new Color([255, 255, 255, 0.9]),
+                    width: 2
+                },
+                size: 16
+            });
+            
+            // 创建精度范围符号
+            const accuracySymbol = new SimpleFillSymbol({
+                color: new Color([0, 121, 193, 0.15]),
+                outline: new SimpleLineSymbol({
+                    color: new Color([0, 121, 193, 0.5]),
+                    width: 1,
+                    style: "dash"
+                })
+            });
+            
+            // 创建轨迹线符号
+            const trackLineSymbol = new SimpleLineSymbol({
+                color: new Color([0, 121, 193, 0.7]),
+                width: 3,
+                style: "solid"
+            });
+            
+            // 初始化追踪组件
+            const track = new Track({
+                view: view,
+                useHeadingEnabled: false, // 不启用方向追踪
+                goToLocationEnabled: true, // 定位时地图自动跳转
+                graphic: new Graphic({
+                    symbol: locationSymbol
+                })
+            });
+            
+            // 将追踪组件添加到视图UI中
+            view.ui.add(track, "top-left");
+            
+            // DOM元素引用
+            const startTrackingBtn = document.getElementById("startTracking");
+            const stopTrackingBtn = document.getElementById("stopTracking");
+            const trackingStatusEl = document.getElementById("trackingStatus");
+            const currentPositionEl = document.getElementById("currentPosition");
+            const accuracyEl = document.getElementById("accuracy");
+            const lastUpdateEl = document.getElementById("lastUpdate");
+            const infoBubble = document.getElementById("infoBubble");
+            
+            // 状态变量
+            let isTracking = false;
+            let lastPosition = null;
+            let trackPoints = [];
+            
+            // 显示信息提示
+            function showInfo(message, isError = false) {
+                infoBubble.textContent = message;
+                infoBubble.className = isError ? "info-bubble error" : "info-bubble";
+                infoBubble.style.display = "block";
+                
+                setTimeout(() => {
+                    infoBubble.style.display = "none";
+                }, 4000);
+            }
+            
+            // 更新状态显示
+            function updateStatus(position) {
+                if (!position) return;
+                
+                const lat = position.coords.latitude.toFixed(6);
+                const lng = position.coords.longitude.toFixed(6);
+                const accuracy = position.coords.accuracy;
+                const timestamp = new Date(position.timestamp).toLocaleTimeString();
+                
+                currentPositionEl.textContent = `${lat}, ${lng}`;
+                accuracyEl.textContent = `${accuracy.toFixed(0)} 米`;
+                lastUpdateEl.textContent = timestamp;
+                
+                // 根据精度设置颜色
+                let accuracyClass = "accuracy-low";
+                if (accuracy < 20) accuracyClass = "accuracy-high";
+                else if (accuracy < 50) accuracyClass = "accuracy-medium";
+                
+                accuracyEl.className = `status-value ${accuracyClass}`;
+            }
+            
+            // 在地图上更新位置标记
+            function updatePositionOnMap(position) {
+                // 清除之前的标记
+                positionLayer.removeAll();
+                
+                const point = new Point({
+                    longitude: position.coords.longitude,
+                    latitude: position.coords.latitude
+                });
+                
+                // 添加位置标记
+                const locationGraphic = new Graphic({
+                    geometry: point,
+                    symbol: locationSymbol
+                });
+                
+                positionLayer.add(locationGraphic);
+                
+                // 添加精度范围圆圈（如果精度可用）
+                if (position.coords.accuracy) {
+                    const accuracyGraphic = new Graphic({
+                        geometry: point.buffer(position.coords.accuracy),
+                        symbol: accuracySymbol
+                    });
+                    
+                    positionLayer.add(accuracyGraphic);
+                }
+                
+                // 记录轨迹点
+                trackPoints.push(point);
+                
+                // 绘制轨迹线（如果有至少2个点）
+                if (trackPoints.length >= 2) {
+                    trackLayer.removeAll();
+                    
+                    const trackLineGraphic = new Graphic({
+                        geometry: {
+                            type: "polyline",
+                            paths: [trackPoints.map(p => [p.longitude, p.latitude])]
+                        },
+                        symbol: trackLineSymbol
+                    });
+                    
+                    trackLayer.add(trackLineGraphic);
+                }
+                
+                // 更新上次位置
+                lastPosition = position;
+            }
+            
+            // 开始追踪
+            function startTracking() {
+                if (isTracking) return;
+                
+                // 检查浏览器是否支持地理定位
+                if (!navigator.geolocation) {
+                    showInfo("您的浏览器不支持地理定位功能", true);
+                    return;
+                }
+                
+                isTracking = true;
+                trackingStatusEl.textContent = "追踪中";
+                trackingStatusEl.style.color = "#4CAF50";
+                startTrackingBtn.disabled = true;
+                stopTrackingBtn.disabled = false;
+                startTrackingBtn.classList.remove("tracking-active");
+                stopTrackingBtn.classList.add("tracking-active");
+                
+                // 清空之前的轨迹
+                trackPoints = [];
+                trackLayer.removeAll();
+                
+                showInfo("已开始实时位置追踪");
+                
+                // 首次定位
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        updateStatus(position);
+                        updatePositionOnMap(position);
+                        
+                        // 将地图视图移动到当前位置
+                        view.goTo({
+                            center: [position.coords.longitude, position.coords.latitude],
+                            zoom: 16
+                        });
+                    },
+                    (error) => {
+                        handleGeolocationError(error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+                
+                // 设置持续监视位置变化
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        updateStatus(position);
+                        updatePositionOnMap(position);
+                    },
+                    (error) => {
+                        handleGeolocationError(error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            }
+            
+            // 停止追踪
+            function stopTracking() {
+                if (!isTracking) return;
+                
+                isTracking = false;
+                
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                
+                trackingStatusEl.textContent = "已停止";
+                trackingStatusEl.style.color = "#F44336";
+                startTrackingBtn.disabled = false;
+                stopTrackingBtn.disabled = true;
+                startTrackingBtn.classList.remove("tracking-active");
+                stopTrackingBtn.classList.remove("tracking-active");
+                
+                showInfo("已停止位置追踪");
+            }
+            
+            // 处理地理定位错误
+            function handleGeolocationError(error) {
+                let errorMessage = "";
+                
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "用户拒绝了定位请求。请在浏览器设置中允许此网站访问位置信息。";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "无法获取当前位置信息（例如，GPS信号弱）。";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "定位请求超时，请重试。";
+                        break;
+                    case error.UNKNOWN_ERROR:
+                        errorMessage = "发生了未知错误。";
+                        break;
+                }
+                
+                showInfo("定位失败: " + errorMessage, true);
+                stopTracking();
+            }
+            
+            // 初始化追踪组件的事件监听
+            track.on("track", (event) => {
+                if (event.state === "started") {
+                    startTracking();
+                } else if (event.state === "stopped") {
+                    stopTracking();
+                }
+            });
+            
+            // 添加按钮事件监听
+            startTrackingBtn.addEventListener("click", startTracking);
+            stopTrackingBtn.addEventListener("click", stopTracking);
+            
+            // 页面加载完成后，显示使用提示
+            view.when(() => {
+                setTimeout(() => {
+                    showInfo("点击左上角定位按钮或下方'开始追踪'按钮启动实时位置追踪");
+                }, 1500);
+            });
+            
+            // 页面卸载前停止追踪
+            window.addEventListener("beforeunload", stopTracking);
+            
+            // 初始状态
+            let watchId = null;
+        });
+    </script>
+</body>
+</html>
