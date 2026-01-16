@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GeoScene 智能导航系统</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #0079c1 0%, #005e95 100%);
+            color: white;
+            padding: 16px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        #mapView {
+            flex: 1;
+            width: 100%;
+        }
+        
+        .sidebar {
+            width: 350px;
+            background-color: white;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .control-panel {
+            background-color: white;
+            padding: 15px 20px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .search-container {
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #0079c1;
+        }
+        
+        .search-results {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .search-result-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .search-result-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .result-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #0079c1;
+        }
+        
+        .result-address {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .destination-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .info-value {
+            color: #0079c1;
+        }
+        
+        .navigation-steps {
+            margin-top: 20px;
+        }
+        
+        .navigation-step {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .step-icon {
+            width: 30px;
+            height: 30px;
+            background-color: #0079c1;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-instruction {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .step-distance {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .route-summary {
+            background: linear-gradient(135deg, #0079c1 0%, #005e95 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .summary-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background-color: #0079c1;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #005e95;
+        }
+        
+        .btn-secondary {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .btn-success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #388E3C;
+        }
+        
+        .btn-danger {
+            background-color: #F44336;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #D32F2F;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .status-container {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .status-value {
+            color: #0079c1;
+        }
+        
+        .accuracy-high { color: #4CAF50; }
+        .accuracy-medium { color: #FF9800; }
+        .accuracy-low { color: #F44336; }
+        
+        .tracking-active {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 121, 193, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 121, 193, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 121, 193, 0); }
+        }
+        
+        .toggle-sidebar {
+            position: absolute;
+            top: 80px;
+            left: 360px;
+            z-index: 50;
+            background-color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: left 0.3s;
+        }
+        
+        .toggle-sidebar.collapsed {
+            left: 10px;
+        }
+        
+        .marker-info-window {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 250px;
+        }
+        
+        .info-window-title {
+            font-weight: 600;
+            color: #0079c1;
+            margin-bottom: 5px;
+        }
+        
+        .info-window-address {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .info-window-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .info-window-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            background-color: #0079c1;
+            color: white;
+        }
+        
+        .navigation-status-bar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .nav-status-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .remaining-distance {
+            font-weight: 600;
+            color: #0079c1;
+            font-size: 1.1rem;
+        }
+        
+        .remaining-time {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .progress-bar-container {
+            width: 200px;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 100%;
+                z-index: 100;
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .toggle-sidebar {
+                display: block;
+            }
+            
+            .navigation-status-bar {
+                width: 90%;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .progress-bar-container {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            header {
+                padding: 14px 16px;
+            }
+            
+            h1 {
+                font-size: 1.2rem;
+            }
+            
+            .sidebar-content {
+                padding: 15px;
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><i class="fas fa-map-marked-alt"></i> GeoScene 智能导航系统</h1>
+        <div class="subtitle">实时位置追踪 + 智能路径规划</div>
+    </header>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-route"></i> 导航设置</h2>
+            </div>
+            <div class="sidebar-content">
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input" placeholder="搜索目的地或输入地址...">
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                
+                <div id="destinationInfo" class="destination-info" style="display: none;">
+                    <h3><i class="fas fa-map-marker-alt"></i> 目的地信息</h3>
+                    <div class="info-item">
+                        <span class="info-label">地点：</span>
+                        <span id="destName" class="info-value"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">地址：</span>
+                        <span id="destAddress" class="info-value"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">距离：</span>
+                        <span id="destDistance" class="info-value"></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">预计时间：</span>
+                        <span id="destTime" class="info-value"></span>
+                    </div>
+                </div>
+                
+                <div id="navigationSteps" class="navigation-steps" style="display: none;"></div>
+                
+                <div id="routeSummary" class="route-summary" style="display: none;"></div>
+                
+                <div class="button-group">
+                    <button id="startNavigation" class="btn btn-success" disabled>
+                        <i class="fas fa-play"></i> 开始导航
+                    </button>
+                    <button id="clearRoute" class="btn btn-secondary">
+                        <i class="fas fa-trash-alt"></i> 清除路线
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="mapView"></div>
+        
+        <button id="toggleSidebar" class="toggle-sidebar">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        
+        <div class="navigation-status-bar" id="navigationStatusBar">
+            <div class="nav-status-info">
+                <div class="remaining-distance" id="remainingDistance">--</div>
+                <div class="remaining-time" id="remainingTime">--</div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="routeProgress"></div>
+            </div>
+            <button id="stopNavigation" class="btn btn-danger btn-sm">
+                <i class="fas fa-stop"></i> 停止
+            </button>
+        </div>
+    </div>
+    
+    <div class="control-panel">
+        <div class="status-container">
+            <div class="status-item">
+                <span class="status-label">导航状态:</span>
+                <span id="navigationStatus" class="status-value">未开始</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">当前位置:</span>
+                <span id="currentPosition" class="status-value">等待定位...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">定位精度:</span>
+                <span id="accuracy" class="status-value">--</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">目的地:</span>
+                <span id="destinationInfoMini" class="status-value">未设置</span>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button id="startTracking" class="btn btn-primary">
+                <i class="fas fa-satellite"></i> 开始定位
+            </button>
+            <button id="stopTracking" class="btn btn-secondary" disabled>
+                <i class="fas fa-stop-circle"></i> 停止定位
+            </button>
+            <button id="recenterMap" class="btn btn-secondary">
+                <i class="fas fa-location-arrow"></i> 回到位置
+            </button>
+        </div>
+    </div>
+
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/widgets/Track",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/geometry/Polyline",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/symbols/PictureMarkerSymbol",
+            "esri/symbols/SimpleLineSymbol",
+            "esri/symbols/SimpleFillSymbol",
+            "esri/Color",
+            "esri/layers/GraphicsLayer",
+            "esri/rest/locator",
+            "esri/rest/route",
+            "esri/rest/support/RouteParameters",
+            "esri/rest/support/FeatureSet",
+            "esri/geometry/SpatialReference"
+        ], function(
+            Map, MapView, Track, Graphic, Point, Polyline, 
+            SimpleMarkerSymbol, PictureMarkerSymbol, SimpleLineSymbol, 
+            SimpleFillSymbol, Color, GraphicsLayer,
+            locator, route, RouteParameters, FeatureSet, SpatialReference
+        ) {
+            
+            // 初始化地图
+            const map = new Map({
+                basemap: "streets-navigation-vector"
+            });
+            
+            // 创建地图视图
+            const view = new MapView({
+                container: "mapView",
+                map: map,
+                center: [116.4074, 39.9042],
+                zoom: 12,
+                constraints: {
+                    minZoom: 3,
+                    maxZoom: 20
+                }
+            });
+            
+            // 创建图形图层
+            const positionLayer = new GraphicsLayer(); // 当前位置标记
+            const routeLayer = new GraphicsLayer();    // 路线图层
+            const markersLayer = new GraphicsLayer();  // 标记点图层
+            const searchResultsLayer = new GraphicsLayer(); // 搜索结果图层
+            
+            map.addMany([positionLayer, routeLayer, markersLayer, searchResultsLayer]);
+            
+            // 符号定义
+            const currentLocationSymbol = new PictureMarkerSymbol({
+                url: "https://static.arcgis.com/images/Symbols/Basic/GreenShinyPin.png",
+                width: 36,
+                height: 36
+            });
+            
+            const destinationSymbol = new PictureMarkerSymbol({
+                url: "https://static.arcgis.com/images/Symbols/Basic/RedShinyPin.png",
+                width: 36,
+                height: 36
+            });
+            
+            const routeSymbol = new SimpleLineSymbol({
+                color: new Color([0, 121, 193, 0.8]),
+                width: 4,
+                style: "solid"
+            });
+            
+            const searchResultSymbol = new SimpleMarkerSymbol({
+                color: new Color([255, 140, 0, 0.9]),
+                outline: {
+                    color: new Color([255, 255, 255, 0.9]),
+                    width: 2
+                },
+                size: 10
+            });
+            
+            // 状态变量
+            let isTracking = false;
+            let isNavigating = false;
+            let watchId = null;
+            let currentLocation = null;
+            let destination = null;
+            let currentRoute = null;
+            let routeGraphics = [];
+            let navigationSteps = [];
+            
+            // DOM元素引用
+            const startTrackingBtn = document.getElementById("startTracking");
+            const stopTrackingBtn = document.getElementById("stopTracking");
+            const recenterMapBtn = document.getElementById("recenterMap");
+            const searchInput = document.getElementById("searchInput");
+            const searchResults = document.getElementById("searchResults");
+            const destinationInfo = document.getElementById("destinationInfo");
+            const navigationStepsEl = document.getElementById("navigationSteps");
+            const routeSummaryEl = document.getElementById("routeSummary");
+            const startNavigationBtn = document.getElementById("startNavigation");
+            const clearRouteBtn = document.getElementById("clearRoute");
+            const navigationStatusBar = document.getElementById("navigationStatusBar");
+            const remainingDistanceEl = document.getElementById("remainingDistance");
+            const remainingTimeEl = document.getElementById("remainingTime");
+            const routeProgressEl = document.getElementById("routeProgress");
+            const stopNavigationBtn = document.getElementById("stopNavigation");
+            const toggleSidebarBtn = document.getElementById("toggleSidebar");
+            const sidebar = document.querySelector(".sidebar");
+            
+            // 状态显示元素
+            const navigationStatusEl = document.getElementById("navigationStatus");
+            const currentPositionEl = document.getElementById("currentPosition");
+            const accuracyEl = document.getElementById("accuracy");
+            const destinationInfoMiniEl = document.getElementById("destinationInfoMini");
+            const destNameEl = document.getElementById("destName");
+            const destAddressEl = document.getElementById("destAddress");
+            const destDistanceEl = document.getElementById("destDistance");
+            const destTimeEl = document.getElementById("destTime");
+            
+            // 路径服务（使用ArcGIS Online的路径服务）
+            const routeUrl = "https://route.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World";
+            
+            // 地址定位服务
+            const locatorUrl = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer";
+            
+            // 初始化追踪组件
+            const track = new Track({
+                view: view,
+                useHeadingEnabled: false,
+                goToLocationEnabled: true,
+                graphic: new Graphic({
+                    symbol: currentLocationSymbol
+                })
+            });
+            
+            view.ui.add(track, "top-left");
+            
+            // 显示信息提示
+            function showInfo(message, isError = false) {
+                const infoBubble = document.createElement("div");
+                infoBubble.className = isError ? "info-bubble error" : "info-bubble";
+                infoBubble.textContent = message;
+                infoBubble.style.cssText = `
+                    position: absolute;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background-color: white;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 1000;
+                    max-width: 90%;
+                    text-align: center;
+                    border-left: 4px solid ${isError ? '#F44336' : '#4CAF50'};
+                `;
+                
+                document.body.appendChild(infoBubble);
+                
+                setTimeout(() => {
+                    infoBubble.style.opacity = "0";
+                    infoBubble.style.transition = "opacity 0.3s";
+                    setTimeout(() => infoBubble.remove(), 300);
+                }, 3000);
+            }
+            
+            // 更新状态显示
+            function updateStatus(position) {
+                if (!position) return;
+                
+                currentLocation = {
+                    longitude: position.coords.longitude,
+                    latitude: position.coords.latitude
+                };
+                
+                const lat = position.coords.latitude.toFixed(6);
+                const lng = position.coords.longitude.toFixed(6);
+                const accuracy = position.coords.accuracy;
+                const timestamp = new Date(position.timestamp).toLocaleTimeString();
+                
+                currentPositionEl.textContent = `${lat}, ${lng}`;
+                accuracyEl.textContent = `${accuracy.toFixed(0)} 米`;
+                
+                // 根据精度设置颜色
+                let accuracyClass = "accuracy-low";
+                if (accuracy < 20) accuracyClass = "accuracy-high";
+                else if (accuracy < 50) accuracyClass = "accuracy-medium";
+                
+                accuracyEl.className = `status-value ${accuracyClass}`;
+                
+                // 在地图上更新位置标记
+                updatePositionOnMap(position);
+                
+                // 如果正在导航，更新导航状态
+                if (isNavigating && destination) {
+                    updateNavigationStatus();
+                }
+            }
+            
+            // 在地图上更新位置标记
+            function updatePositionOnMap(position) {
+                positionLayer.removeAll();
+                
+                const point = new Point({
+                    longitude: position.coords.longitude,
+                    latitude: position.coords.latitude
+                });
+                
+                const locationGraphic = new Graphic({
+                    geometry: point,
+                    symbol: currentLocationSymbol,
+                    attributes: {
+                        name: "当前位置",
+                        type: "current"
+                    }
+                });
+                
+                positionLayer.add(locationGraphic);
+            }
+            
+            // 搜索地点
+            async function searchPlaces(query) {
+                if (!query || query.length < 2) {
+                    searchResults.innerHTML = "";
+                    searchResultsLayer.removeAll();
+                    return;
+                }
+                
+                try {
+                    const results = await locator.addressToLocations(locatorUrl, {
+                        address: {
+                            "SingleLine": query
+                        },
+                        maxLocations: 10,
+                        outFields: ["PlaceName", "Place_addr", "Type"],
+                        forStorage: false
+                    });
+                    
+                    displaySearchResults(results);
+                } catch (error) {
+                    console.error("搜索失败:", error);
+                    showInfo("搜索失败，请重试", true);
+                }
+            }
+            
+            // 显示搜索结果
+            function displaySearchResults(results) {
+                searchResults.innerHTML = "";
+                searchResultsLayer.removeAll();
+                
+                if (results.length === 0) {
+                    searchResults.innerHTML = '<div class="search-result-item">未找到相关地点</div>';
+                    return;
+                }
+                
+                results.forEach((result, index) => {
+                    const item = document.createElement("div");
+                    item.className = "search-result-item";
+                    item.innerHTML = `
+                        <div class="result-name">${result.attributes.PlaceName || "未命名地点"}</div>
+                        <div class="result-address">${result.attributes.Place_addr || "地址未知"}</div>
+                    `;
+                    
+                    item.addEventListener("click", () => {
+                        selectDestination(result.attributes, result.location);
+                    });
+                    
+                    searchResults.appendChild(item);
+                    
+                    // 在地图上添加标记
+                    const graphic = new Graphic({
+                        geometry: result.location,
+                        symbol: searchResultSymbol,
+                        attributes: result.attributes
+                    });
+                    
+                    searchResultsLayer.add(graphic);
+                });
+            }
+            
+            // 选择目的地
+            function selectDestination(attributes, location) {
+                destination = {
+                    name: attributes.PlaceName || "未命名地点",
+                    address: attributes.Place_addr || "地址未知",
+                    location: location
+                };
+                
+                // 更新界面显示
+                destNameEl.textContent = destination.name;
+                destAddressEl.textContent = destination.address;
+                destinationInfo.style.display = "block";
+                destinationInfoMiniEl.textContent = destination.name;
+                
+                // 清除之前的搜索结果
+                searchResults.innerHTML = "";
+                searchResultsLayer.removeAll();
+                searchInput.value = destination.name;
+                
+                // 在地图上添加目的地标记
+                markersLayer.removeAll();
+                
+                const destGraphic = new Graphic({
+                    geometry: destination.location,
+                    symbol: destinationSymbol,
+                    attributes: {
+                        name: destination.name,
+                        type: "destination"
+                    },
+                    popupTemplate: {
+                        title: "{name}",
+                        content: "目的地"
+                    }
+                });
+                
+                markersLayer.add(destGraphic);
+                
+                // 自动计算路线
+                if (currentLocation) {
+                    calculateRoute();
+                } else {
+                    startNavigationBtn.disabled = false;
+                    showInfo("目的地已设置，请先开启定位以计算路线");
+                }
+                
+                // 将地图视图移动到目的地
+                view.goTo({
+                    target: destination.location,
+                    zoom: 14
+                });
+            }
+            
+            // 计算路线
+            async function calculateRoute() {
+                if (!currentLocation || !destination) return;
+                
+                try {
+                    navigationStatusEl.textContent = "计算路线中...";
+                    
+                    const routeParams = new RouteParameters({
+                        stops: new FeatureSet({
+                            features: [
+                                new Graphic({
+                                    geometry: new Point({
+                                        x: currentLocation.longitude,
+                                        y: currentLocation.latitude
+                                    })
+                                }),
+                                new Graphic({
+                                    geometry: destination.location
+                                })
+                            ]
+                        }),
+                        returnDirections: true,
+                        directionsLengthUnits: "kilometers"
+                    });
+                    
+                    const data = await route.solve(routeUrl, routeParams);
+                    
+                    if (data.routeResults.length > 0) {
+                        const routeResult = data.routeResults[0].route;
+                        const directions = data.routeResults[0].directions;
+                        
+                        currentRoute = {
+                            geometry: routeResult.geometry,
+                            directions: directions,
+                            totalDistance: directions.totalLength.toFixed(1),
+                            totalTime: Math.round(directions.totalTime)
+                        };
+                        
+                        // 显示路线
+                        displayRoute(routeResult.geometry);
+                        
+                        // 显示路线信息
+                        displayRouteInfo();
+                        
+                        // 显示导航步骤
+                        displayNavigationSteps(directions.features);
+                        
+                        startNavigationBtn.disabled = false;
+                        navigationStatusEl.textContent = "路线已规划";
+                        
+                        showInfo(`路线规划完成，全程${currentRoute.totalDistance}公里`);
+                    }
+                } catch (error) {
+                    console.error("路线计算失败:", error);
+                    showInfo("路线计算失败，请检查网络连接或稍后重试", true);
+                    navigationStatusEl.textContent = "路线计算失败";
+                }
+            }
+            
+            // 显示路线
+            function displayRoute(geometry) {
+                routeLayer.removeAll();
+                routeGraphics = [];
+                
+                const routeGraphic = new Graphic({
+                    geometry: geometry,
+                    symbol: routeSymbol
+                });
+                
+                routeLayer.add(routeGraphic);
+                routeGraphics.push(routeGraphic);
+            }
+            
+            // 显示路线信息
+            function displayRouteInfo() {
+                if (!currentRoute) return;
+                
+                routeSummaryEl.innerHTML = `
+                    <h3><i class="fas fa-info-circle"></i> 路线概览</h3>
+                    <div class="summary-item">
+                        <span>总距离：</span>
+                        <span class="summary-value">${currentRoute.totalDistance} 公里</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>预计时间：</span>
+                        <span class="summary-value">${Math.round(currentRoute.totalTime / 60)} 分钟</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>路况：</span>
+                        <span class="summary-value">正常</span>
+                    </div>
+                `;
+                
+                routeSummaryEl.style.display = "block";
+            }
+            
+            // 显示导航步骤
+            function displayNavigationSteps(steps) {
+                navigationSteps = steps;
+                navigationStepsEl.innerHTML = "";
+                
+                steps.forEach((step, index) => {
+                    const stepEl = document.createElement("div");
+                    stepEl.className = "navigation-step";
+                    
+                    const distance = step.length ? `${step.length.toFixed(1)}公里` : "";
+                    
+                    stepEl.innerHTML = `
+                        <div class="step-icon">${index + 1}</div>
+                        <div class="step-content">
+                            <div class="step-instruction">${step.text}</div>
+                            <div class="step-distance">${distance}</div>
+                        </div>
+                    `;
+                    
+                    navigationStepsEl.appendChild(stepEl);
+                });
+                
+                navigationStepsEl.style.display = "block";
+            }
+            
+            // 开始导航
+            function startNavigation() {
+                if (!currentRoute || !destination) {
+                    showInfo("请先设置目的地并规划路线", true);
+                    return;
+                }
+                
+                isNavigating = true;
+                navigationStatusEl.textContent = "导航中";
+                navigationStatusBar.style.display = "flex";
+                startNavigationBtn.disabled = true;
+                stopNavigationBtn.disabled = false;
+                
+                showInfo("导航开始，请按路线行驶");
+            }
+            
+            // 停止导航
+            function stopNavigation() {
+                isNavigating = false;
+                navigationStatusEl.textContent = "导航已停止";
+                navigationStatusBar.style.display = "none";
+                startNavigationBtn.disabled = false;
+                routeProgressEl.style.width = "0%";
+                
+                showInfo("导航已停止");
+            }
+            
+            // 更新导航状态
+            function updateNavigationStatus() {
+                if (!isNavigating || !currentLocation || !destination || !currentRoute) return;
+                
+                // 计算当前位置到目的地的直线距离
+                const currentPoint = new Point({
+                    x: currentLocation.longitude,
+                    y: currentLocation.latitude
+                });
+                
+                const destPoint = destination.location;
+                
+                // 这里简化处理，实际应用中应该计算沿路线的剩余距离
+                const remainingDist = Math.round(calculateDistance(currentPoint, destPoint) * 100) / 100;
+                const estimatedTime = Math.round(remainingDist / 0.06); // 假设平均速度60公里/小时
+                
+                remainingDistanceEl.textContent = `剩余: ${remainingDist} 公里`;
+                remainingTimeEl.textContent = `预计: ${estimatedTime} 分钟`;
+                
+                // 更新进度条（简化）
+                const progress = Math.min(95, Math.max(5, 100 - (remainingDist / parseFloat(currentRoute.totalDistance)) * 100));
+                routeProgressEl.style.width = `${progress}%`;
+            }
+            
+            // 计算两点间距离（简化版）
+            function calculateDistance(point1, point2) {
+                const R = 6371; // 地球半径（公里）
+                const dLat = toRad(point2.y - point1.y);
+                const dLon = toRad(point2.x - point1.x);
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(toRad(point1.y)) * Math.cos(toRad(point2.y)) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+            
+            function toRad(degrees) {
+                return degrees * Math.PI / 180;
+            }
+            
+            // 清除路线
+            function clearRoute() {
+                destination = null;
+                currentRoute = null;
+                routeLayer.removeAll();
+                markersLayer.removeAll();
+                routeGraphics = [];
+                navigationSteps = [];
+                
+                destinationInfo.style.display = "none";
+                navigationStepsEl.style.display = "none";
+                routeSummaryEl.style.display = "none";
+                navigationStatusBar.style.display = "none";
+                startNavigationBtn.disabled = true;
+                
+                destinationInfoMiniEl.textContent = "未设置";
+                navigationStatusEl.textContent = "未开始";
+                
+                showInfo("路线已清除");
+            }
+            
+            // 开始追踪位置
+            function startTracking() {
+                if (isTracking) return;
+                
+                if (!navigator.geolocation) {
+                    showInfo("您的浏览器不支持地理定位功能", true);
+                    return;
+                }
+                
+                isTracking = true;
+                startTrackingBtn.disabled = true;
+                stopTrackingBtn.disabled = false;
+                navigationStatusEl.textContent = "定位中";
+                
+                showInfo("已开始实时位置追踪");
+                
+                // 首次定位
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        updateStatus(position);
+                        
+                        // 将地图视图移动到当前位置
+                        view.goTo({
+                            center: [position.coords.longitude, position.coords.latitude],
+                            zoom: 16
+                        });
+                        
+                        // 如果已设置目的地，重新计算路线
+                        if (destination) {
+                            calculateRoute();
+                        }
+                    },
+                    (error) => {
+                        handleGeolocationError(error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+                
+                // 设置持续监视位置变化
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        updateStatus(position);
+                    },
+                    (error) => {
+                        handleGeolocationError(error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            }
+            
+            // 停止追踪
+            function stopTracking() {
+                if (!isTracking) return;
+                
+                isTracking = false;
+                
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                
+                navigationStatusEl.textContent = "定位已停止";
+                startTrackingBtn.disabled = false;
+                stopTrackingBtn.disabled = true;
+                
+                showInfo("已停止位置追踪");
+            }
+            
+            // 处理地理定位错误
+            function handleGeolocationError(error) {
+                let errorMessage = "";
+                
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "用户拒绝了定位请求。请在浏览器设置中允许此网站访问位置信息。";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "无法获取当前位置信息（例如，GPS信号弱）。";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "定位请求超时，请重试。";
+                        break;
+                    case error.UNKNOWN_ERROR:
+                        errorMessage = "发生了未知错误。";
+                        break;
+                }
+                
+                showInfo("定位失败: " + errorMessage, true);
+                stopTracking();
+            }
+            
+            // 重新定位到当前位置
+            function recenterMap() {
+                if (currentLocation) {
+                    view.goTo({
+                        center: [currentLocation.longitude, currentLocation.latitude],
+                        zoom: 16
+                    });
+                } else {
+                    showInfo("请先开启定位", true);
+                }
+            }
+            
+            // 侧边栏切换
+            function toggleSidebar() {
+                sidebar.classList.toggle("collapsed");
+                toggleSidebarBtn.classList.toggle("collapsed");
+                toggleSidebarBtn.innerHTML = sidebar.classList.contains("collapsed") 
+                    ? '<i class="fas fa-chevron-right"></i>' 
+                    : '<i class="fas fa-chevron-left"></i>';
+            }
+            
+            // 事件监听器
+            startTrackingBtn.addEventListener("click", startTracking);
+            stopTrackingBtn.addEventListener("click", stopTracking);
+            recenterMapBtn.addEventListener("click", recenterMap);
+            startNavigationBtn.addEventListener("click", startNavigation);
+            stopNavigationBtn.addEventListener("click", stopNavigation);
+            clearRouteBtn.addEventListener("click", clearRoute);
+            toggleSidebarBtn.addEventListener("click", toggleSidebar);
+            
+            // 搜索输入监听
+            let searchTimeout;
+            searchInput.addEventListener("input", (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    searchPlaces(e.target.value);
+                }, 500);
+            });
+            
+            // 防止表单提交
+            searchInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    searchPlaces(searchInput.value);
+                }
+            });
+            
+            // 页面卸载前停止追踪
+            window.addEventListener("beforeunload", () => {
+                if (isTracking) stopTracking();
+                if (isNavigating) stopNavigation();
+            });
+            
+            // 初始化追踪组件的事件监听
+            track.on("track", (event) => {
+                if (event.state === "started") {
+                    startTracking();
+                } else if (event.state === "stopped") {
+                    stopTracking();
+                }
+            });
+            
+            // 页面加载完成后，显示使用提示
+            view.when(() => {
+                setTimeout(() => {
+                    showInfo("请输入目的地开始导航，或点击左上角定位按钮开启实时定位");
+                }, 1500);
+            });
+        });
+    </script>
+</body>
+</html>
