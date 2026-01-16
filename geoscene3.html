@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoScene + OSRM 导航系统</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <style>
+        /* 保持原有的CSS样式 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #f5f5f5; color: #333; height: 100vh; display: flex; flex-direction: column; }
+        header { background: linear-gradient(135deg, #0079c1 0%, #005e95 100%); color: white; padding: 16px 20px; }
+        .main-container { flex: 1; display: flex; overflow: hidden; }
+        #mapView { flex: 1; width: 100%; }
+        .sidebar { width: 350px; background: white; display: flex; flex-direction: column; border-right: 1px solid #e0e0e0; }
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 20px; }
+        .control-panel { background: white; padding: 15px 20px; border-top: 1px solid #e0e0e0; }
+        .btn { padding: 12px 15px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: #0079c1; color: white; }
+        .search-input { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; }
+        .navigation-step { padding: 10px; border-bottom: 1px solid #eee; }
+        .step-instruction { font-weight: bold; }
+        .step-distance { color: #666; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>GeoScene + OSRM 智能导航</h1>
+    </header>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-content">
+                <input type="text" id="searchInput" class="search-input" placeholder="搜索目的地...">
+                <div id="searchResults"></div>
+                <div id="routePanel" style="display:none;">
+                    <h3>路线规划</h3>
+                    <div id="routeSummary"></div>
+                    <div id="stepsContainer"></div>
+                    <button id="startNavigation" class="btn btn-primary">开始导航</button>
+                    <button id="clearRoute" class="btn">清除</button>
+                </div>
+            </div>
+        </div>
+        <div id="mapView"></div>
+    </div>
+
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/geometry/Polyline",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/symbols/SimpleLineSymbol",
+            "esri/Color",
+            "esri/layers/GraphicsLayer",
+            "esri/geometry/support/webMercatorUtils"
+        ], function(
+            Map, MapView, Graphic, Point, Polyline,
+            SimpleMarkerSymbol, SimpleLineSymbol, Color,
+            GraphicsLayer, webMercatorUtils
+        ) {
+            
+            // 初始化地图
+            const map = new Map({
+                basemap: "streets-navigation-vector"
+            });
+            
+            const view = new MapView({
+                container: "mapView",
+                map: map,
+                center: [116.4074, 39.9042],
+                zoom: 12
+            });
+            
+            // 创建图形图层
+            const routeLayer = new GraphicsLayer();
+            const markersLayer = new GraphicsLayer();
+            map.addMany([routeLayer, markersLayer]);
+            
+            // 符号定义
+            const startSymbol = new SimpleMarkerSymbol({
+                color: new Color([76, 175, 80, 0.9]),
+                size: 12,
+                outline: { color: [255, 255, 255, 0.9], width: 2 }
+            });
+            
+            const endSymbol = new SimpleMarkerSymbol({
+                color: new Color([244, 67, 54, 0.9]),
+                size: 14,
+                outline: { color: [255, 255, 255, 0.9], width: 2 }
+            });
+            
+            const routeSymbol = new SimpleLineSymbol({
+                color: new Color([0, 121, 193, 0.8]),
+                width: 4,
+                style: "solid"
+            });
+            
+            // OSRM服务配置（使用公开的OSRM服务）
+            const OSRM_SERVICE = {
+                driving: "https://router.project-osrm.org/route/v1/driving/",
+                walking: "https://router.project-osrm.org/route/v1/walking/",
+                cycling: "https://router.project-osrm.org/route/v1/cycling/"
+            };
+            
+            // 变量
+            let currentLocation = null;
+            let destination = null;
+            let currentRoute = null;
+            let watchId = null;
+            
+            // DOM元素
+            const searchInput = document.getElementById("searchInput");
+            const searchResults = document.getElementById("searchResults");
+            const routePanel = document.getElementById("routePanel");
+            const routeSummary = document.getElementById("routeSummary");
+            const stepsContainer = document.getElementById("stepsContainer");
+            const startNavigationBtn = document.getElementById("startNavigation");
+            const clearRouteBtn = document.getElementById("clearRoute");
+            
+            // 初始化地理定位
+            initGeolocation();
+            
+            // 搜索功能（简化版，使用Nominatim地理编码）
+            searchInput.addEventListener("input", debounce(async (e) => {
+                const query = e.target.value;
+                if (query.length < 2) {
+                    searchResults.innerHTML = "";
+                    return;
+                }
+                
+                try {
+                    const results = await searchWithNominatim(query);
+                    displaySearchResults(results);
+                } catch (error) {
+                    console.error("搜索失败:", error);
+                }
+            }, 500));
+            
+            // 使用Nominatim进行地理编码（OpenStreetMap的搜索服务）
+            async function searchWithNominatim(query) {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'GeoSceneNavigation/1.0'
+                    }
+                });
+                
+                return await response.json();
+            }
+            
+            function displaySearchResults(results) {
+                searchResults.innerHTML = "";
+                
+                if (!results || results.length === 0) {
+                    searchResults.innerHTML = "<div>未找到结果</div>";
+                    return;
+                }
+                
+                results.forEach(result => {
+                    const div = document.createElement("div");
+                    div.className = "search-result";
+                    div.innerHTML = `
+                        <strong>${result.display_name.split(',')[0]}</strong><br>
+                        <small>${result.display_name.substring(result.display_name.indexOf(',') + 1)}</small>
+                    `;
+                    
+                    div.addEventListener("click", () => {
+                        selectDestination({
+                            name: result.display_name,
+                            lat: parseFloat(result.lat),
+                            lon: parseFloat(result.lon)
+                        });
+                    });
+                    
+                    searchResults.appendChild(div);
+                });
+            }
+            
+            function selectDestination(place) {
+                destination = {
+                    name: place.name,
+                    location: new Point({
+                        longitude: place.lon,
+                        latitude: place.lat
+                    })
+                };
+                
+                // 在地图上添加目的地标记
+                markersLayer.removeAll();
+                
+                const destGraphic = new Graphic({
+                    geometry: destination.location,
+                    symbol: endSymbol,
+                    attributes: {
+                        name: destination.name,
+                        type: "destination"
+                    }
+                });
+                
+                markersLayer.add(destGraphic);
+                
+                // 显示路线面板
+                routePanel.style.display = "block";
+                routeSummary.innerHTML = `目的地: ${destination.name}`;
+                
+                // 如果有当前位置，计算路线
+                if (currentLocation) {
+                    calculateOSRMRoute();
+                } else {
+                    stepsContainer.innerHTML = "<p>等待获取当前位置...</p>";
+                }
+                
+                // 地图居中到目的地
+                view.goTo({
+                    target: destination.location,
+                    zoom: 14
+                });
+            }
+            
+            // 使用OSRM计算路线
+            async function calculateOSRMRoute() {
+                if (!currentLocation || !destination) return;
+                
+                try {
+                    // 构造OSRM请求URL
+                    const startLon = currentLocation.longitude;
+                    const startLat = currentLocation.latitude;
+                    const endLon = destination.location.longitude;
+                    const endLat = destination.location.latitude;
+                    
+                    const url = `${OSRM_SERVICE.driving}${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=geojson&steps=true`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.code === "Ok" && data.routes.length > 0) {
+                        const route = data.routes[0];
+                        displayOSRMRoute(route);
+                        displayOSRMSteps(route.legs[0].steps);
+                    } else {
+                        throw new Error("无法计算路线");
+                    }
+                } catch (error) {
+                    console.error("路线计算失败:", error);
+                    stepsContainer.innerHTML = `<p class="error">路线计算失败: ${error.message}</p>`;
+                }
+            }
+            
+            // 显示OSRM路线
+            function displayOSRMRoute(route) {
+                // 清除之前的路线
+                routeLayer.removeAll();
+                
+                // 解析GeoJSON几何图形
+                const geometry = route.geometry;
+                const coordinates = geometry.coordinates;
+                
+                // 将坐标转换为ArcGIS点数组
+                const points = coordinates.map(coord => new Point({
+                    longitude: coord[0],
+                    latitude: coord[1]
+                }));
+                
+                // 创建折线
+                const polyline = new Polyline({
+                    paths: [points.map(p => [p.longitude, p.latitude])],
+                    spatialReference: { wkid: 4326 }
+                });
+                
+                // 添加路线图形
+                const routeGraphic = new Graphic({
+                    geometry: polyline,
+                    symbol: routeSymbol
+                });
+                
+                routeLayer.add(routeGraphic);
+                
+                // 添加起点标记
+                const startGraphic = new Graphic({
+                    geometry: new Point({
+                        longitude: coordinates[0][0],
+                        latitude: coordinates[0][1]
+                    }),
+                    symbol: startSymbol
+                });
+                
+                routeLayer.add(startGraphic);
+                
+                // 存储路线信息
+                currentRoute = {
+                    geometry: polyline,
+                    distance: (route.distance / 1000).toFixed(2), // 转换为公里
+                    duration: (route.duration / 60).toFixed(0),   // 转换为分钟
+                    coordinates: coordinates
+                };
+                
+                // 更新路线摘要
+                routeSummary.innerHTML = `
+                    <p><strong>目的地:</strong> ${destination.name}</p>
+                    <p><strong>距离:</strong> ${currentRoute.distance} 公里</p>
+                    <p><strong>预计时间:</strong> ${currentRoute.duration} 分钟</p>
+                `;
+            }
+            
+            // 显示导航步骤
+            function displayOSRMSteps(steps) {
+                stepsContainer.innerHTML = "<h4>导航指引:</h4>";
+                
+                steps.forEach((step, index) => {
+                    const stepDiv = document.createElement("div");
+                    stepDiv.className = "navigation-step";
+                    
+                    const distance = step.distance > 1000 
+                        ? `${(step.distance / 1000).toFixed(2)}公里` 
+                        : `${Math.round(step.distance)}米`;
+                    
+                    stepDiv.innerHTML = `
+                        <div class="step-instruction">${index + 1}. ${step.maneuver.instruction || "继续前进"}</div>
+                        <div class="step-distance">${distance}</div>
+                    `;
+                    
+                    stepsContainer.appendChild(stepDiv);
+                });
+            }
+            
+            // 初始化地理定位
+            function initGeolocation() {
+                if (!navigator.geolocation) {
+                    alert("您的浏览器不支持地理定位");
+                    return;
+                }
+                
+                // 开始获取位置
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        updateCurrentLocation(position);
+                        if (destination) calculateOSRMRoute();
+                    },
+                    error => console.error("定位失败:", error),
+                    { enableHighAccuracy: true }
+                );
+                
+                // 持续监视位置
+                watchId = navigator.geolocation.watchPosition(
+                    position => updateCurrentLocation(position),
+                    error => console.error("位置更新失败:", error),
+                    { enableHighAccuracy: true, maximumAge: 30000 }
+                );
+            }
+            
+            function updateCurrentLocation(position) {
+                currentLocation = {
+                    longitude: position.coords.longitude,
+                    latitude: position.coords.latitude,
+                    accuracy: position.coords.accuracy
+                };
+                
+                // 添加当前位置标记
+                const currentPoint = new Point({
+                    longitude: currentLocation.longitude,
+                    latitude: currentLocation.latitude
+                });
+                
+                // 如果有路线，可以在这里添加实时位置更新逻辑
+            }
+            
+            // 开始导航
+            startNavigationBtn.addEventListener("click", () => {
+                if (!currentRoute) return;
+                
+                alert(`开始导航到 ${destination.name}\n距离: ${currentRoute.distance}公里\n预计时间: ${currentRoute.duration}分钟`);
+                
+                // 这里可以添加实时导航逻辑
+                // 例如：语音播报、实时位置跟踪、偏航检测等
+            });
+            
+            // 清除路线
+            clearRouteBtn.addEventListener("click", () => {
+                destination = null;
+                currentRoute = null;
+                routeLayer.removeAll();
+                markersLayer.removeAll();
+                routePanel.style.display = "none";
+                searchResults.innerHTML = "";
+                searchInput.value = "";
+            });
+            
+            // 工具函数
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+            
+            // 页面卸载时清理
+            window.addEventListener('beforeunload', () => {
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+            });
+        });
+    </script>
+</body>
+</html>
