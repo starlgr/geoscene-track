@@ -110,11 +110,6 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             width: calc(100% - 40px);
             max-width: 400px;
-            display: none;
-        }
-        
-        .location-info.active {
-            display: block;
         }
         
         .location-info h3 {
@@ -156,79 +151,176 @@
             font-weight: 500;
         }
         
-        .console-log {
+        /* 实时经纬度显示区域 */
+        .real-time-coords {
             position: absolute;
-            bottom: 90px;
+            bottom: 100px;
             left: 20px;
             right: 20px;
-            background-color: rgba(0, 0, 0, 0.85);
-            color: #0f0;
-            font-family: 'Courier New', monospace;
-            padding: 12px 15px;
-            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.85) 0%, rgba(40, 40, 40, 0.9) 100%);
+            color: #fff;
+            border-radius: 12px;
+            padding: 15px;
             z-index: 10;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            border-left: 5px solid #0078d4;
+        }
+        
+        .real-time-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .real-time-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #4dabf7;
+            display: flex;
+            align-items: center;
+        }
+        
+        .real-time-title i {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+        
+        .update-indicator {
+            font-size: 0.8rem;
+            background-color: rgba(0, 200, 80, 0.2);
+            color: #0f0;
+            padding: 3px 8px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .update-indicator .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #0f0;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        
+        .coords-display {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .coord-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .coord-label {
+            font-weight: 600;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        
+        .coord-value {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #4dabf7;
+            text-align: right;
+            letter-spacing: 0.5px;
+        }
+        
+        .timestamp {
+            text-align: center;
             font-size: 0.85rem;
-            max-height: 120px;
+            color: #aaa;
+            margin-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 8px;
+        }
+        
+        /* 位置历史记录区域 */
+        .history-panel {
+            position: absolute;
+            top: 220px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: calc(100% - 40px);
+            max-width: 400px;
+            max-height: 200px;
             overflow-y: auto;
             display: none;
         }
         
-        .console-log.active {
+        .history-panel.active {
             display: block;
         }
         
-        .console-title {
-            color: #fff;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #0078d4;
+            font-size: 1rem;
             font-weight: 600;
         }
         
-        .log-entry {
-            margin-bottom: 3px;
-            word-break: break-all;
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
         
-        .log-time {
-            color: #aaa;
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            padding: 6px 0;
+            border-bottom: 1px solid #eee;
         }
         
-        .log-data {
-            color: #0f0;
+        .history-time {
+            color: #777;
         }
         
-        .toggle-console {
+        .history-coords {
+            color: #0078d4;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .toggle-history {
             position: absolute;
             right: 20px;
-            bottom: 155px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: #fff;
+            top: 190px;
+            background-color: rgba(0, 120, 212, 0.9);
+            color: white;
             border: none;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             z-index: 11;
-            font-size: 1.2rem;
-        }
-        
-        @media (max-width: 480px) {
-            .header h1 {
-                font-size: 1.2rem;
-            }
-            
-            .btn {
-                padding: 14px 24px;
-                font-size: 1rem;
-            }
-            
-            .location-info {
-                top: 70px;
-                padding: 12px;
-            }
+            font-size: 1rem;
+            box-shadow: 0 3px 10px rgba(0, 120, 212, 0.4);
         }
         
         /* 加载动画 */
@@ -267,6 +359,47 @@
             stroke: #0078d4;
             stroke-width: 2;
         }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .btn {
+                padding: 14px 24px;
+                font-size: 1rem;
+            }
+            
+            .location-info {
+                top: 70px;
+                padding: 12px;
+            }
+            
+            .real-time-coords {
+                bottom: 90px;
+                padding: 12px;
+            }
+            
+            .coord-value {
+                font-size: 1rem;
+            }
+        }
+        
+        @media (max-height: 700px) {
+            .real-time-coords {
+                bottom: 85px;
+                padding: 10px;
+            }
+            
+            .coord-row {
+                padding: 8px;
+            }
+            
+            .location-info {
+                top: 70px;
+                padding: 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -293,17 +426,65 @@
                 <span class="location-value" id="accuracy">-</span>
             </div>
             <div class="location-item">
+                <span class="location-label">海拔:</span>
+                <span class="location-value" id="altitude">-</span>
+            </div>
+            <div class="location-item">
+                <span class="location-label">速度:</span>
+                <span class="location-value" id="speed">-</span>
+            </div>
+            <div class="location-item">
+                <span class="location-label">方向:</span>
+                <span class="location-value" id="heading">-</span>
+            </div>
+            <div class="location-item">
                 <span class="location-label">最后更新:</span>
                 <span class="location-value" id="lastUpdate">-</span>
             </div>
         </div>
     </div>
     
-    <button class="toggle-console" id="toggleConsole">📋</button>
+    <!-- 实时经纬度显示区域 -->
+    <div class="real-time-coords" id="realTimeCoords">
+        <div class="real-time-header">
+            <div class="real-time-title">
+                <i>📡</i> 实时GPS坐标
+            </div>
+            <div class="update-indicator" id="updateIndicator">
+                <div class="dot"></div>
+                <span>每5秒更新</span>
+            </div>
+        </div>
+        
+        <div class="coords-display">
+            <div class="coord-row">
+                <span class="coord-label">纬度:</span>
+                <span class="coord-value" id="realTimeLat">-</span>
+            </div>
+            <div class="coord-row">
+                <span class="coord-label">经度:</span>
+                <span class="coord-value" id="realTimeLng">-</span>
+            </div>
+            <div class="coord-row">
+                <span class="coord-label">更新次数:</span>
+                <span class="coord-value" id="updateCount">0</span>
+            </div>
+        </div>
+        
+        <div class="timestamp" id="timestamp">尚未开始跟踪</div>
+    </div>
     
-    <div class="console-log" id="consoleLog">
-        <div class="console-title">位置日志 (每5秒更新):</div>
-        <div id="logEntries"></div>
+    <!-- 位置历史记录 -->
+    <button class="toggle-history" id="toggleHistory">📊</button>
+    
+    <div class="history-panel" id="historyPanel">
+        <div class="history-header">
+            <span>位置历史记录</span>
+            <button id="clearHistory" style="background:none;border:none;color:#0078d4;font-size:0.8rem;cursor:pointer;">清空</button>
+        </div>
+        <div class="history-list" id="historyList">
+            <!-- 历史记录将动态添加到这里 -->
+        </div>
     </div>
     
     <div class="controls">
@@ -320,7 +501,8 @@
         let map, view, locationGraphic, watchId;
         let isTracking = false;
         let locationUpdateCount = 0;
-        let consoleVisible = false;
+        let historyVisible = false;
+        let locationHistory = [];
         
         // 初始化地图
         require([
@@ -365,11 +547,16 @@
                 }
             });
             
-            // 控制台显示/隐藏
-            document.getElementById("toggleConsole").addEventListener("click", function() {
-                consoleVisible = !consoleVisible;
-                const consoleLog = document.getElementById("consoleLog");
-                consoleLog.classList.toggle("active", consoleVisible);
+            // 切换历史记录面板
+            document.getElementById("toggleHistory").addEventListener("click", function() {
+                historyVisible = !historyVisible;
+                document.getElementById("historyPanel").classList.toggle("active", historyVisible);
+            });
+            
+            // 清空历史记录
+            document.getElementById("clearHistory").addEventListener("click", function() {
+                locationHistory = [];
+                document.getElementById("historyList").innerHTML = "";
             });
             
             // 开始GPS跟踪
@@ -392,7 +579,6 @@
                         document.getElementById("loader").classList.remove("active");
                         document.getElementById("locateBtn").disabled = false;
                         document.getElementById("locateBtn").textContent = "停止GPS定位";
-                        document.getElementById("locationInfo").classList.add("active");
                         document.getElementById("status").textContent = "定位跟踪中";
                         document.getElementById("status").style.backgroundColor = "rgba(0, 200, 80, 0.3)";
                         
@@ -408,8 +594,6 @@
                         );
                         
                         isTracking = true;
-                        consoleVisible = true;
-                        document.getElementById("consoleLog").classList.add("active");
                         
                         // 自动滚动地图到当前位置
                         view.goTo({
@@ -437,8 +621,8 @@
                 document.getElementById("status").textContent = "定位已停止";
                 document.getElementById("status").style.backgroundColor = "rgba(255, 100, 100, 0.3)";
                 
-                // 添加停止日志
-                addLogEntry("GPS定位已停止");
+                // 更新实时显示区域
+                document.getElementById("updateIndicator").innerHTML = '<div class="dot" style="background-color:#f00;"></div><span>已停止</span>';
             }
             
             // 更新位置信息
@@ -446,13 +630,25 @@
                 const coords = position.coords;
                 locationUpdateCount++;
                 
-                // 更新位置信息显示
+                // 更新时间戳
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                const dateString = now.toLocaleDateString();
+                
+                // 更新实时显示区域
+                document.getElementById("realTimeLat").textContent = coords.latitude.toFixed(6);
+                document.getElementById("realTimeLng").textContent = coords.longitude.toFixed(6);
+                document.getElementById("updateCount").textContent = locationUpdateCount;
+                document.getElementById("timestamp").textContent = `最后更新: ${dateString} ${timeString}`;
+                
+                // 更新位置信息面板
                 document.getElementById("latitude").textContent = coords.latitude.toFixed(6);
                 document.getElementById("longitude").textContent = coords.longitude.toFixed(6);
-                document.getElementById("accuracy").textContent = `${coords.accuracy.toFixed(1)} 米`;
-                
-                const now = new Date();
-                document.getElementById("lastUpdate").textContent = now.toLocaleTimeString();
+                document.getElementById("accuracy").textContent = coords.accuracy ? `${coords.accuracy.toFixed(1)} 米` : "-";
+                document.getElementById("altitude").textContent = coords.altitude ? `${coords.altitude.toFixed(1)} 米` : "-";
+                document.getElementById("speed").textContent = coords.speed ? `${(coords.speed * 3.6).toFixed(1)} 公里/小时` : "-";
+                document.getElementById("heading").textContent = coords.heading ? `${coords.heading.toFixed(0)}°` : "-";
+                document.getElementById("lastUpdate").textContent = timeString;
                 
                 // 在地图上显示位置
                 const point = new Point({
@@ -463,6 +659,9 @@
                 // 移除之前的图形
                 if (locationGraphic) {
                     view.graphics.remove(locationGraphic);
+                    if (locationGraphic.accuracyGraphic) {
+                        view.graphics.remove(locationGraphic.accuracyGraphic);
+                    }
                 }
                 
                 // 创建新图形
@@ -501,13 +700,54 @@
                     locationGraphic.accuracyGraphic = accuracyGraphic;
                 }
                 
-                // 每5次更新打印一次到控制台
+                // 每5秒在控制台打印位置信息（保持原有功能）
                 if (locationUpdateCount % 5 === 0) {
                     console.log(`位置更新 #${locationUpdateCount}: 纬度 ${coords.latitude.toFixed(6)}, 经度 ${coords.longitude.toFixed(6)}, 精度 ${coords.accuracy ? coords.accuracy.toFixed(1) + '米' : '未知'}`);
                     
-                    // 添加到页面日志
-                    addLogEntry(`纬度: ${coords.latitude.toFixed(6)}, 经度: ${coords.longitude.toFixed(6)}`);
+                    // 添加到历史记录
+                    addToHistory(coords.latitude, coords.longitude, timeString);
                 }
+                
+                // 更新指示器动画
+                const dot = document.querySelector('.update-indicator .dot');
+                dot.style.animation = 'none';
+                setTimeout(() => {
+                    dot.style.animation = 'pulse 2s infinite';
+                }, 10);
+            }
+            
+            // 添加位置到历史记录
+            function addToHistory(lat, lng, time) {
+                // 添加到历史记录数组
+                locationHistory.unshift({
+                    lat: lat.toFixed(6),
+                    lng: lng.toFixed(6),
+                    time: time
+                });
+                
+                // 限制历史记录数量
+                if (locationHistory.length > 10) {
+                    locationHistory.pop();
+                }
+                
+                // 更新历史记录显示
+                updateHistoryDisplay();
+            }
+            
+            // 更新历史记录显示
+            function updateHistoryDisplay() {
+                const historyList = document.getElementById("historyList");
+                historyList.innerHTML = "";
+                
+                locationHistory.forEach((item, index) => {
+                    const historyItem = document.createElement("div");
+                    historyItem.className = "history-item";
+                    historyItem.innerHTML = `
+                        <span class="history-time">${item.time}</span>
+                        <span class="history-coords">${item.lat}, ${item.lng}</span>
+                    `;
+                    historyList.appendChild(historyItem);
+                });
             }
             
             // 处理位置错误
@@ -533,36 +773,19 @@
                 
                 document.getElementById("status").textContent = "定位失败";
                 document.getElementById("status").style.backgroundColor = "rgba(255, 100, 100, 0.3)";
+                
+                // 更新实时显示区域
+                document.getElementById("realTimeLat").textContent = "获取失败";
+                document.getElementById("realTimeLng").textContent = "获取失败";
+                document.getElementById("timestamp").textContent = `错误: ${errorMessage}`;
+                document.getElementById("updateIndicator").innerHTML = '<div class="dot" style="background-color:#f00;"></div><span>定位失败</span>';
+                
                 alert("GPS定位错误: " + errorMessage);
-                
-                addLogEntry(`错误: ${errorMessage}`);
-            }
-            
-            // 添加日志条目
-            function addLogEntry(message) {
-                const logEntries = document.getElementById("logEntries");
-                const now = new Date();
-                const timeString = now.toLocaleTimeString();
-                
-                const logEntry = document.createElement("div");
-                logEntry.className = "log-entry";
-                logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-data">${message}</span>`;
-                
-                logEntries.appendChild(logEntry);
-                
-                // 限制日志条目数量
-                if (logEntries.children.length > 10) {
-                    logEntries.removeChild(logEntries.firstChild);
-                }
-                
-                // 滚动到底部
-                logEntries.scrollTop = logEntries.scrollHeight;
             }
             
             // 页面加载完成时初始化
             view.when(() => {
                 console.log("GeoScene地图加载完成");
-                addLogEntry("系统就绪，等待GPS定位...");
             });
         });
         
