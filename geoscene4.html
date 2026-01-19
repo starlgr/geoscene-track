@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GeoScene GPS定位跟踪</title>
+    <!-- GeoScene API -->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #mapView {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(135deg, rgba(0, 120, 212, 0.9) 0%, rgba(0, 77, 143, 0.9) 100%);
+            color: white;
+            padding: 15px 20px;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .header .status {
+            font-size: 0.9rem;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+            padding: 0 20px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #0078d4 0%, #004d8f 100%);
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            box-shadow: 0 6px 20px rgba(0, 120, 212, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 400px;
+            letter-spacing: 1px;
+        }
+        
+        .btn:hover, .btn:active {
+            background: linear-gradient(135deg, #006cbd 0%, #003d75 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 120, 212, 0.5);
+        }
+        
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .location-info {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: calc(100% - 40px);
+            max-width: 400px;
+            display: none;
+        }
+        
+        .location-info.active {
+            display: block;
+        }
+        
+        .location-info h3 {
+            color: #0078d4;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .location-info h3 i {
+            margin-right: 8px;
+        }
+        
+        .location-data {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .location-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 6px;
+        }
+        
+        .location-item:last-child {
+            border-bottom: none;
+        }
+        
+        .location-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .location-value {
+            color: #0078d4;
+            font-weight: 500;
+        }
+        
+        .console-log {
+            position: absolute;
+            bottom: 90px;
+            left: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 12px 15px;
+            border-radius: 8px;
+            z-index: 10;
+            font-size: 0.85rem;
+            max-height: 120px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .console-log.active {
+            display: block;
+        }
+        
+        .console-title {
+            color: #fff;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .log-entry {
+            margin-bottom: 3px;
+            word-break: break-all;
+        }
+        
+        .log-time {
+            color: #aaa;
+        }
+        
+        .log-data {
+            color: #0f0;
+        }
+        
+        .toggle-console {
+            position: absolute;
+            right: 20px;
+            bottom: 155px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 11;
+            font-size: 1.2rem;
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .btn {
+                padding: 14px 24px;
+                font-size: 1rem;
+            }
+            
+            .location-info {
+                top: 70px;
+                padding: 12px;
+            }
+        }
+        
+        /* 加载动画 */
+        .loader {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            text-align: center;
+            color: #0078d4;
+        }
+        
+        .loader.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 5px solid rgba(0, 120, 212, 0.2);
+            border-top: 5px solid #0078d4;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .accuracy-circle {
+            fill: rgba(0, 120, 212, 0.1);
+            stroke: #0078d4;
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>GeoScene GPS定位跟踪</h1>
+        <div class="status" id="status">等待定位</div>
+    </div>
+    
+    <div id="mapView"></div>
+    
+    <div class="location-info" id="locationInfo">
+        <h3><i>📍</i> 当前位置信息</h3>
+        <div class="location-data">
+            <div class="location-item">
+                <span class="location-label">经度:</span>
+                <span class="location-value" id="longitude">-</span>
+            </div>
+            <div class="location-item">
+                <span class="location-label">纬度:</span>
+                <span class="location-value" id="latitude">-</span>
+            </div>
+            <div class="location-item">
+                <span class="location-label">精度:</span>
+                <span class="location-value" id="accuracy">-</span>
+            </div>
+            <div class="location-item">
+                <span class="location-label">最后更新:</span>
+                <span class="location-value" id="lastUpdate">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <button class="toggle-console" id="toggleConsole">📋</button>
+    
+    <div class="console-log" id="consoleLog">
+        <div class="console-title">位置日志 (每5秒更新):</div>
+        <div id="logEntries"></div>
+    </div>
+    
+    <div class="controls">
+        <button class="btn" id="locateBtn">开始GPS定位</button>
+    </div>
+    
+    <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <p>正在获取您的位置...</p>
+    </div>
+
+    <script>
+        // 全局变量
+        let map, view, locationGraphic, watchId;
+        let isTracking = false;
+        let locationUpdateCount = 0;
+        let consoleVisible = false;
+        
+        // 初始化地图
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/symbols/SimpleFillSymbol",
+            "esri/geometry/Circle"
+        ], function(Map, MapView, Graphic, Point, SimpleMarkerSymbol, SimpleFillSymbol, Circle) {
+            
+            // 创建地图
+            map = new Map({
+                basemap: "streets-navigation-vector"
+            });
+            
+            // 创建地图视图
+            view = new MapView({
+                container: "mapView",
+                map: map,
+                center: [116.4074, 39.9042], // 北京中心坐标
+                zoom: 12
+            });
+            
+            // 创建定位图标
+            const locationSymbol = new SimpleMarkerSymbol({
+                color: [0, 120, 212, 0.9],
+                size: 16,
+                outline: {
+                    color: [255, 255, 255, 0.9],
+                    width: 3
+                }
+            });
+            
+            // 定位按钮事件处理
+            document.getElementById("locateBtn").addEventListener("click", function() {
+                if (!isTracking) {
+                    startTracking();
+                } else {
+                    stopTracking();
+                }
+            });
+            
+            // 控制台显示/隐藏
+            document.getElementById("toggleConsole").addEventListener("click", function() {
+                consoleVisible = !consoleVisible;
+                const consoleLog = document.getElementById("consoleLog");
+                consoleLog.classList.toggle("active", consoleVisible);
+            });
+            
+            // 开始GPS跟踪
+            function startTracking() {
+                if (!navigator.geolocation) {
+                    alert("您的浏览器不支持GPS定位功能");
+                    return;
+                }
+                
+                // 显示加载动画
+                document.getElementById("loader").classList.add("active");
+                document.getElementById("status").textContent = "获取位置中...";
+                document.getElementById("locateBtn").disabled = true;
+                
+                // 先获取一次位置
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        // 成功获取位置
+                        updateLocation(position);
+                        document.getElementById("loader").classList.remove("active");
+                        document.getElementById("locateBtn").disabled = false;
+                        document.getElementById("locateBtn").textContent = "停止GPS定位";
+                        document.getElementById("locationInfo").classList.add("active");
+                        document.getElementById("status").textContent = "定位跟踪中";
+                        document.getElementById("status").style.backgroundColor = "rgba(0, 200, 80, 0.3)";
+                        
+                        // 开始定时跟踪
+                        watchId = navigator.geolocation.watchPosition(
+                            updateLocation,
+                            handleLocationError,
+                            {
+                                enableHighAccuracy: true,
+                                maximumAge: 3000,
+                                timeout: 10000
+                            }
+                        );
+                        
+                        isTracking = true;
+                        consoleVisible = true;
+                        document.getElementById("consoleLog").classList.add("active");
+                        
+                        // 自动滚动地图到当前位置
+                        view.goTo({
+                            center: [position.coords.longitude, position.coords.latitude],
+                            zoom: 16
+                        });
+                    },
+                    handleLocationError,
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 0
+                    }
+                );
+            }
+            
+            // 停止GPS跟踪
+            function stopTracking() {
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+                
+                isTracking = false;
+                document.getElementById("locateBtn").textContent = "开始GPS定位";
+                document.getElementById("status").textContent = "定位已停止";
+                document.getElementById("status").style.backgroundColor = "rgba(255, 100, 100, 0.3)";
+                
+                // 添加停止日志
+                addLogEntry("GPS定位已停止");
+            }
+            
+            // 更新位置信息
+            function updateLocation(position) {
+                const coords = position.coords;
+                locationUpdateCount++;
+                
+                // 更新位置信息显示
+                document.getElementById("latitude").textContent = coords.latitude.toFixed(6);
+                document.getElementById("longitude").textContent = coords.longitude.toFixed(6);
+                document.getElementById("accuracy").textContent = `${coords.accuracy.toFixed(1)} 米`;
+                
+                const now = new Date();
+                document.getElementById("lastUpdate").textContent = now.toLocaleTimeString();
+                
+                // 在地图上显示位置
+                const point = new Point({
+                    longitude: coords.longitude,
+                    latitude: coords.latitude
+                });
+                
+                // 移除之前的图形
+                if (locationGraphic) {
+                    view.graphics.remove(locationGraphic);
+                }
+                
+                // 创建新图形
+                locationGraphic = new Graphic({
+                    geometry: point,
+                    symbol: locationSymbol
+                });
+                
+                // 添加到地图
+                view.graphics.add(locationGraphic);
+                
+                // 如果精度信息可用，添加精度范围圆
+                if (coords.accuracy) {
+                    const accuracyCircle = new Circle({
+                        center: point,
+                        radius: coords.accuracy,
+                        radiusUnit: "meters"
+                    });
+                    
+                    const accuracySymbol = new SimpleFillSymbol({
+                        color: [0, 120, 212, 0.1],
+                        outline: {
+                            color: [0, 120, 212, 0.5],
+                            width: 1
+                        }
+                    });
+                    
+                    const accuracyGraphic = new Graphic({
+                        geometry: accuracyCircle,
+                        symbol: accuracySymbol
+                    });
+                    
+                    view.graphics.add(accuracyGraphic);
+                    
+                    // 保存以便下次移除
+                    locationGraphic.accuracyGraphic = accuracyGraphic;
+                }
+                
+                // 每5次更新打印一次到控制台
+                if (locationUpdateCount % 5 === 0) {
+                    console.log(`位置更新 #${locationUpdateCount}: 纬度 ${coords.latitude.toFixed(6)}, 经度 ${coords.longitude.toFixed(6)}, 精度 ${coords.accuracy ? coords.accuracy.toFixed(1) + '米' : '未知'}`);
+                    
+                    // 添加到页面日志
+                    addLogEntry(`纬度: ${coords.latitude.toFixed(6)}, 经度: ${coords.longitude.toFixed(6)}`);
+                }
+            }
+            
+            // 处理位置错误
+            function handleLocationError(error) {
+                document.getElementById("loader").classList.remove("active");
+                document.getElementById("locateBtn").disabled = false;
+                
+                let errorMessage;
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "用户拒绝了位置请求。请允许浏览器访问您的位置信息。";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "位置信息不可用。请检查您的设备GPS设置。";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "获取位置信息超时。请重试。";
+                        break;
+                    default:
+                        errorMessage = "发生未知错误。";
+                        break;
+                }
+                
+                document.getElementById("status").textContent = "定位失败";
+                document.getElementById("status").style.backgroundColor = "rgba(255, 100, 100, 0.3)";
+                alert("GPS定位错误: " + errorMessage);
+                
+                addLogEntry(`错误: ${errorMessage}`);
+            }
+            
+            // 添加日志条目
+            function addLogEntry(message) {
+                const logEntries = document.getElementById("logEntries");
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                
+                const logEntry = document.createElement("div");
+                logEntry.className = "log-entry";
+                logEntry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-data">${message}</span>`;
+                
+                logEntries.appendChild(logEntry);
+                
+                // 限制日志条目数量
+                if (logEntries.children.length > 10) {
+                    logEntries.removeChild(logEntries.firstChild);
+                }
+                
+                // 滚动到底部
+                logEntries.scrollTop = logEntries.scrollHeight;
+            }
+            
+            // 页面加载完成时初始化
+            view.when(() => {
+                console.log("GeoScene地图加载完成");
+                addLogEntry("系统就绪，等待GPS定位...");
+            });
+        });
+        
+        // 页面离开前停止跟踪
+        window.addEventListener("beforeunload", function() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+        });
+    </script>
+</body>
+</html>
